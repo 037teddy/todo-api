@@ -1,4 +1,6 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const openapiSpec = require('./openapi.json');
 const app = express();
 app.use(express.json());
 
@@ -74,6 +76,8 @@ app.delete('/tasks/:id', (req, res) => {
   tasks.splice(index, 1);
   res.status(204).send();
 });
+
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
 });
