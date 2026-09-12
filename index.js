@@ -22,11 +22,12 @@ app.get('/health', (req, res) => {
   res.json({ status: "ok" });
 });
 app.get('/tasks', (req, res) => {
+  const tasks = db.prepare('SELECT * FROM tasks').all();
   res.json(tasks);
 });
 
 app.get('/tasks/:id', (req, res) => {
-  const task = tasks.find(t => t.id === parseInt(req.params.id));
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!task) {
     return res.status(404).json({ error: `Task ${req.params.id} not found` });
   }
