@@ -48,8 +48,8 @@ app.post('/tasks', (req, res) => {
   res.status(201).json(newTask);
 });
 app.put('/tasks/:id', (req, res) => {
-  const task = tasks.find(t => t.id === parseInt(req.params.id));
-  if (!task) {
+  const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!existing) {
     return res.status(404).json({ error: `Task ${req.params.id} not found` });
   }
 
@@ -59,22 +59,25 @@ app.put('/tasks/:id', (req, res) => {
     return res.status(400).json({ error: "Title cannot be empty" });
   }
 
-  if (title !== undefined) task.title = title;
-  if (done !== undefined) task.done = done;
+  const newTitle = title !== undefined ? title : existing.title;
+  const newDone = done !== undefined ? (done ? 1 : 0) : existing.done;
 
-  res.json(task);
+  db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?')
+    .run(newTitle, newDone, req.params.id);
+
+  const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  res.json(updated);
 });
 
 app.delete('/tasks/:id', (req, res) => {
-  const index = tasks.findIndex(t => t.id === parseInt(req.params.id));
-  if (index === -1) {
+  const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!existing) {
     return res.status(404).json({ error: `Task ${req.params.id} not found` });
   }
 
-  tasks.splice(index, 1);
+  db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
   res.status(204).send();
 });
-
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
