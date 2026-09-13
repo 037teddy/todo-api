@@ -1,7 +1,7 @@
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const openapiSpec = require('./openapi.json');
-const db = require('./db');
+const db = require('./pgdb');
 const app = express();
 app.use(express.json());
 
