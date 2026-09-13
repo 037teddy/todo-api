@@ -61,3 +61,11 @@ Run by hand in DB Browser for SQLite after marking all tasks done — it removed
 ## Notes
 
 Data now persists across restarts using SQLite — this replaces the in-memory storage used in the earlier version of this project.
+
+## Database (Postgres via Docker)
+
+Run Postgres in a container:
+
+\`\`\`bash
+docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:16
+\`\`\`
