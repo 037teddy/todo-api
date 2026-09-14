@@ -29,6 +29,20 @@ app.get('/tasks/:id', async (req, res) => {
   }
   res.json(task);
 });
+app.get('/public/info', (req, res) => {
+  res.status(200).json({ message: "Welcome stranger! This info is public." });
+});
+
+app.get('/protected/profile', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.split(' ')[1] === '') {
+    return res.status(401).json({ error: "Access token required" });
+  }
+
+  const token = authHeader.split(' ')[1];
+  res.status(200).json({ message: "Token received (not verified yet)", token });
+});
 app.post('/tasks', async (req, res) => {
   const { title } = req.body;
 
