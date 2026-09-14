@@ -3,6 +3,7 @@ const swaggerUi = require('swagger-ui-express');
 const openapiSpec = require('./openapi.json');
 const db = require('./pgdb');
 const app = express();
+const supabase = require('./supabaseClient');
 app.use(express.json());
 app.get('/', (req, res) => {
   res.json({
@@ -76,5 +77,5 @@ app.delete('/tasks/:id', async (req, res) => {
 });
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
+  console.log('Server running on http://localhost:3000 and connected to Supabase');
 });
