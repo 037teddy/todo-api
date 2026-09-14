@@ -1,79 +1,109 @@
 # Task API
 
-A CRUD API for managing a to-do list, built with Node.js and Express, backed by PostgreSQL and fully containerized with Docker. Built as part of the FlyRank Backend AI Engineering internship (Assignments A1, A2, and A3).
+A CRUD API for managing a to-do list, secured with Supabase Auth, backed by PostgreSQL, and fully containerized with Docker. Built as part of the FlyRank Backend AI Engineering internship (Assignments A1–A4).
 
-This project has gone through three storage layers as the assignments progressed: an in-memory array (A1) → a SQLite file (A2) → a containerized Postgres database (A3, current). The API and its behavior stayed identical throughout — only the storage underneath changed.
+This project has evolved through four assignments: in-memory storage (A1) → SQLite (A2) → containerized Postgres (A3) → authentication with Supabase (A4, current). The core task CRUD API has stayed the same throughout; this stage adds real user accounts and protects routes behind verified JWTs.
 
 ## Install & Run
 
-**Requires Docker Desktop.**
+**Requires Docker Desktop and a free Supabase account.**
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Under Project Settings → API, copy your Project URL and publishable (anon) key
+3. Under Authentication → Sign In / Providers → Email, turn off "Confirm email" for easier local testing
+4. Copy `.env.example` to `.env` and fill in your Supabase values:
 
 ```bash
 cp .env.example .env
+```
+
+5. Start the stack:
+
+```bash
 docker compose up
 ```
 
-That's it — this builds the app image, starts Postgres in its own container, waits for it to be healthy, then starts the API. The server runs on `http://localhost:3000`, and the `tasks` table is created and seeded automatically on first run.
-
-To stop everything: `docker compose down` (your data persists in a named volume — it'll still be there next time you run `docker compose up`).
+The server runs on `http://localhost:3000`. Postgres data is seeded automatically; user accounts are managed entirely by Supabase.
 
 ## Environment variables
 
-See `.env.example` for the required variable:
+See `.env.example`:
 
 ```
+SUPABASE_URL=your_project_url
+SUPABASE_KEY=your_publishable_key
+PORT=3000
 DATABASE_URL=postgres://postgres:dev@db:5432/tasks
 ```
 
-(Inside Docker Compose, the app reaches Postgres via the service name `db`, not `localhost`.)
-
 ## Endpoints
 
-| Method | Path         | Description             |
-|--------|--------------|--------------------------|
-| GET    | `/`          | API info                |
-| GET    | `/health`    | Health check             |
-| GET    | `/tasks`     | List all tasks           |
-| GET    | `/tasks/:id` | Get a single task        |
-| POST   | `/tasks`     | Create a new task        |
-| PUT    | `/tasks/:id` | Update a task            |
-| DELETE | `/tasks/:id` | Delete a task            |
+| Method | Path                  | Description               | Auth required |
+|--------|-----------------------|----------------------------|----------------|
+| POST   | `/auth/signup`        | Create a new user account  | No             |
+| POST   | `/auth/login`         | Log in, get a JWT          | No             |
+| POST   | `/auth/logout`        | End the session             | Yes (Bearer)   |
+| GET    | `/public/info`        | Open, public info           | No             |
+| GET    | `/protected/profile`  | Logged-in user's profile    | Yes (Bearer)   |
+| GET    | `/protected/dashboard`| Example second protected route | Yes (Bearer) |
+| GET    | `/tasks`              | List all tasks              | No             |
+| GET    | `/tasks/:id`          | Get a single task           | No             |
+| POST   | `/tasks`              | Create a new task           | No             |
+| PUT    | `/tasks/:id`          | Update a task                | No             |
+| DELETE | `/tasks/:id`          | Delete a task                | No             |
 
-## Example request
+## Example requests
 
+**Sign up:**
 ```
-$ curl -i http://localhost:3000/tasks/1
+$ curl -i -X POST http://localhost:3000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpassword"}'
+
+HTTP/1.1 201 Created
+```
+
+**Log in:**
+```
+$ curl -i -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpassword"}'
 
 HTTP/1.1 200 OK
-Content-Type: application/json; charset=utf-8
+{"access_token":"eyJ...","refresh_token":"..."}
+```
 
-{"id":1,"title":"Buy milk","done":false}
+**Access a protected route:**
+```
+$ curl -i http://localhost:3000/protected/profile \
+  -H "Authorization: Bearer <your_access_token>"
+
+HTTP/1.1 200 OK
+{"id":"...","email":"you@example.com","created_at":"..."}
 ```
 
 ## Swagger UI
 
-Interactive API docs available at `http://localhost:3000/docs`.
+Interactive API docs, including a Bearer "Authorize" flow for protected routes, available at `http://localhost:3000/docs`.
 
-![Swagger UI](swagger-screenshot.png)
+![Swagger UI with auth](swagger-auth-screenshot.png)
+
+## Authentication
+
+This project uses [Supabase Auth](https://supabase.com/docs/guides/auth) as the identity provider — no passwords are hashed or stored by this application. The flow:
+
+1. Client signs up or logs in via `/auth/signup` / `/auth/login`, forwarded to Supabase
+2. Supabase returns a signed JWT (`access_token`)
+3. Client includes that token as `Authorization: Bearer <token>` on protected routes
+4. The server verifies the token with Supabase (`supabase.auth.getUser(token)`) via reusable middleware before allowing access
+
+A tampered or expired token is rejected with `401`.
 
 ## Database
 
-Data is stored in PostgreSQL, running in its own Docker container, with a named volume (`taskdata`) so data survives even a full `docker compose down` + `up`.
-
-**Why Postgres + Docker?** Postgres is the same production-grade database engine used by real-world backends. Running it in a container means no local install, no version conflicts, and the exact same setup on any machine — "works on my machine" stops being a problem.
-
-`.env` holds the real connection string and is git-ignored; `.env.example` is committed with the variable name so anyone cloning the repo knows what to set.
-
-### Viewing the data directly
-
-```bash
-docker exec -it todo-api-db-1 psql -U postgres -d tasks -c "SELECT * FROM tasks;"
-```
-
-![Database contents](db-screenshot.png)
+Data is stored in PostgreSQL, running in its own Docker container, with a named volume (`taskdata`) so data survives a full stack restart.
 
 ## Notes
 
-- **A1 → A2:** moved storage from an in-memory array to a SQLite file (`tasks.db`), so data survived a server restart.
-- **A2 → A3:** moved storage from SQLite to a containerized PostgreSQL database, and wrapped the whole app + database with Docker Compose so the entire stack starts with one command. Data now survives not just a server restart, but a full container teardown, thanks to a persistent volume.
-- All three versions expose the exact same API — proving that storage is an implementation detail the client never needs to know about.
+- `.env` holds real secrets (Supabase keys, DB connection string) and is git-ignored — never committed.
+- `.env.example` is committed with placeholder values so anyone cloning the repo knows what to configure.
